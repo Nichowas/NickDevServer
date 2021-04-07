@@ -11,6 +11,6 @@ http.listen(port);
 io.on("connection", (client) => {
     client.on('msg', (txt) => {
         console.log(txt)
-        io.broadcast('msg', txt)
+        io.emit('msg', txt)
     })
 })
