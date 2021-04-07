@@ -9,7 +9,6 @@ const
     })
 http.listen(port);
 io.on("connection", (client) => {
-    console.log(client)
     client.on('msg', (txt) => {
         console.log(txt)
     })
