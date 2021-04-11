@@ -29,7 +29,7 @@ io.on("connection", (client) => {
     client.on('disconnect', () => {
         console.log(`client ${socketCount} left`)
         client.to(`Game ${room}`).emit('leave')
-        if (lsc % 2 == 0) {
+        if (lsc % 2 == 0 && socketCount == lsc + 1) {
             socketCount++
         }
     })
