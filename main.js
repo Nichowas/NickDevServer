@@ -9,13 +9,12 @@ const
     })
 http.listen(port);
 var socketCount = 0;
-var startTime = Date.now();
 var ls;
 io.on("connection", (client) => {
     console.log(`${socketCount + 1} client${socketCount > 0 ? 's' : ''} connected`)
     let room = Math.floor(socketCount / 2)
-    client.on('update', (angle) => {
-        client.to(`Game ${room}`).emit('update', { timestamp: Date.now() - startTime, data: angle })
+    client.on('update', (data) => {
+        client.to(`Game ${room}`).emit('update', data)
     })
 
     client.join(`Game ${room}`)

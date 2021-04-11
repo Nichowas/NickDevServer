@@ -23,6 +23,7 @@
     "debug": "^2.6.9",
     "depd": "^1.1.2",
     "destroy": "^1.0.4",
+    "discord.js": "^12.5.3",
     "ee-first": "^1.1.1",
     "encodeurl": "^1.0.2",
     "engine.io": "^5.0.0",
@@ -70,6 +71,5 @@
     "vary": "^1.1.2",
     "ws": "^7.4.4"
   },
-  "devDependencies": {},
   "description": ""
 }
