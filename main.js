@@ -23,6 +23,12 @@ io.on("connection", (client) => {
     } else {
         ls.emit('ready', 0)
         client.emit('ready', 1)
+
     }
+    client.on('disconnect', () => {
+        console.log(`client ${socketCount} left`)
+        client.to(`Game ${room}`).emit('leave')
+    })
     socketCount++;
+
 })
