@@ -8,31 +8,55 @@ const
         }
     })
 http.listen(port);
-var socketCount = 0;
-var ls;
-io.on("connection", (client) => {
-    console.log(`${socketCount + 1} client${socketCount > 0 ? 's' : ''} connected`)
-    let room = Math.floor(socketCount / 2)
-    client.on('update', (data) => {
-        client.to(`Game ${room}`).emit('update', data)
-    })
 
-    client.join(`Game ${room}`)
-    if (socketCount % 2 == 0) {
-        ls = client;
-    } else {
-        ls.emit('ready', 0)
-        client.emit('ready', 1)
-
+class Room {
+    static rooms = [];
+    constructor(size) {
+        Room.rooms.push(this)
+        this.id = `Game ${Room.rooms.length}`
+        this.size = size
+        this.clients = []
     }
-    let lsc = socketCount
-    client.on('disconnect', () => {
-        console.log(`client ${lsc} left`)
-        client.to(`Game ${room}`).emit('leave')
-        if (lsc % 2 == 0 && socketCount == lsc + 1) {
-            socketCount++
+    addClient(c) {
+        c.index = this.clients.length
+        this.clients.push(c)
+    }
+    removeClient(c) {
+        this.clients.splice(c.index, 1)
+        for (let i = c.index; i < this.clients.length; i++) {
+            this.clients[i].id--
         }
-    })
-    socketCount++;
+        delete c.index
+    }
+    acceptingClient(c, i) {
+        return this.clients.length < this.size
+    }
+    fullEmit(f) {
+        if (this.clients.length == this.size) { this.clients.forEach(f) }
+    }
 
+    static findRoom(c) {
+        for (let i = 0; i < this.room.length; i++) {
+            if (this.room[i].acceptingClient(c, i)) return this.room[i]
+        }
+        return new Room(2)
+    }
+}
+
+io.on("connection", (client) => {
+    let room = Room.findRoom(client)
+    room.addClient(client)
+
+    client.join(room.id)
+    room.fullEmit((c, i) => c.emit('ready', i))
+
+    client.on('update', (data) => {
+        client.to(room.id).emit('update', data)
+    })
+
+    client.on('disconnect', () => {
+        client.to(room.id).emit('leave')
+        room.removeClient(client)
+    })
 })
+
