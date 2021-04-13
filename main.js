@@ -1,5 +1,5 @@
 const
-    port = process.env.PORT,
+    port = process.env.PORT || 8080,
     app = require("express")(),
     http = require("http").createServer(app),
     io = require("socket.io")(http, {
