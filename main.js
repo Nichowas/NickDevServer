@@ -42,12 +42,14 @@ class Room {
         return new Room(2)
     }
     static toData() {
-
+        return this.rooms.map(room => {
+            return room.clients.map(client => ({ name: client.name }))
+        })
     }
 }
 
 io.on("connection", (client) => {
-    // client.emit('rooms', Room.toData())
+    client.emit('rooms', Room.toData())
 
     let room
     client.on('join', (name) => {
