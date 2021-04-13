@@ -41,22 +41,33 @@ class Room {
         }
         return new Room(2)
     }
+    static toData() {
+
+    }
 }
 
 io.on("connection", (client) => {
-    let room = Room.findRoom(client)
-    room.addClient(client)
+    // client.emit('rooms', Room.toData())
 
-    client.join(room.id)
-    room.fullEmit((c, i) => c.emit('ready', i))
+    let room
+    client.on('join', (name) => {
+        client.name = name
+        if (room) room.removeClient(client)
+        room = Room.findRoom(client)
+        room.addClient(client)
+        client.join(room.id)
+        room.fullEmit((c, i) => c.emit('ready', i))
+    })
 
     client.on('update', (data) => {
         client.to(room.id).emit('update', data)
     })
 
     client.on('disconnect', () => {
-        client.to(room.id).emit('leave')
-        room.removeClient(client)
+        if (room) {
+            client.to(room.id).emit('leave')
+            room.removeClient(client)
+        }
     })
 })
 
