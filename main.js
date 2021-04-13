@@ -36,8 +36,8 @@ class Room {
     }
 
     static findRoom(c) {
-        for (let i = 0; i < this.room.length; i++) {
-            if (this.room[i].acceptingClient(c, i)) return this.room[i]
+        for (let i = 0; i < this.rooms.length; i++) {
+            if (this.rooms[i].acceptingClient(c, i)) return this.rooms[i]
         }
         return new Room(2)
     }
