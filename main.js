@@ -8,7 +8,7 @@ const
         }
     })
 http.listen(port);
-
+console.log(port)
 class Room {
     static rooms = [];
     constructor(size) {
@@ -29,7 +29,7 @@ class Room {
         delete c.index
     }
     acceptingClient(c, i) {
-        return this.clients.length < this.size
+        return this.clients.length < this.size && (!c.opponent || c.opponent === this.clients[0].name)
     }
     fullEmit(f) {
         if (this.clients.length == this.size) { this.clients.forEach(f) }
@@ -46,19 +46,29 @@ class Room {
             return room.clients.map(client => ({ name: client.name }))
         })
     }
+    static emitData() {
+        io.emit('rooms', this.toData())
+    }
 }
 
 io.on("connection", (client) => {
-    client.emit('rooms', Room.toData())
+    Room.emitData()
 
     let room
-    client.on('join', (name) => {
+    client.on('join', (name, opponent) => {
         client.name = name
+        client.opponent = opponent
+
         if (room) room.removeClient(client)
         room = Room.findRoom(client)
         room.addClient(client)
         client.join(room.id)
+
+
+        client.emit('join')
         room.fullEmit((c, i) => c.emit('ready', i))
+
+        Room.emitData()
     })
 
     client.on('update', (data) => {
@@ -70,6 +80,8 @@ io.on("connection", (client) => {
             client.to(room.id).emit('leave')
             room.removeClient(client)
         }
+
+        Room.emitData()
     })
 })
 
