@@ -84,13 +84,14 @@ io.on("connection", (client) => {
         client.to(room.id).emit('update', data)
     })
 
-    client.on('disconnect', () => {
+    let LEAVE = () => {
         if (room) {
             client.to(room.id).emit('leave')
             room.removeClient(client)
         }
-
         Room.emitData()
-    })
+    }
+    client.on('disconnect', LEAVE)
+    client.on('leave', LEAVE)
 })
 
