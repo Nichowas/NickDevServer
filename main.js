@@ -74,7 +74,7 @@ io.on("connection", (client) => {
         client.join(room.id)
 
 
-        client.emit('join')
+        client.emit('join', room.rid)
         room.fullEmit((c, i) => c.emit('ready', i))
 
         Room.emitData()
