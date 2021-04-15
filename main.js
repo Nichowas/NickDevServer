@@ -12,8 +12,8 @@ console.log(port)
 class Room {
     static rooms = [];
     constructor(size) {
-        Room.rooms.push(this)
         this.rid = Room.rooms.length
+        Room.rooms.push(this)
         this.id = `Game ${this.rid}`
         this.size = size
         this.clients = []
