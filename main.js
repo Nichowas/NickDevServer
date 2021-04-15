@@ -14,7 +14,7 @@ class Room {
     constructor(size) {
         Room.rooms.push(this)
         this.rid = Room.rooms.length
-        this.id = `Game ${rid}`
+        this.id = `Game ${this.rid}`
         this.size = size
         this.clients = []
     }
