@@ -34,7 +34,7 @@ class Room {
         }
     }
     acceptingClient(c, i) {
-        return this.clients.length < this.size && (!c.opponent || c.opponent === this.clients[0].name)
+        return this.clients.length < this.size
     }
     fullEmit(f) {
         if (this.clients.length == this.size) { this.clients.forEach(f) }
@@ -66,12 +66,10 @@ io.on("connection", (client) => {
     Room.emitData()
 
     let room
-    client.on('join', (name, opponent) => {
+    client.on('join', (name, i) => {
         client.name = name
-        client.opponent = opponent
-
         if (room) room.removeClient(client)
-        room = Room.findRoom(client)
+        room = i ? Room.rooms[i] : new Room(2)
         room.addClient(client)
         client.join(room.id)
 
