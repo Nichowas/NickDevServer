@@ -50,7 +50,6 @@ class Room {
         this.rooms.splice(i, 1)
         for (let j = i; j < this.rooms.length; j++) {
             this.rooms[j].rid = j
-            this.rooms[j].id = `Game ${j}`
         }
     }
     static toData() {
