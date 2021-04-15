@@ -1,5 +1,6 @@
+// port = 3000,
 const
-    port = process.env.PORT || 8080,
+    port = process.env.PORT,
     app = require("express")(),
     http = require("http").createServer(app),
     io = require("socket.io")(http, {
@@ -11,10 +12,12 @@ http.listen(port);
 console.log(port)
 class Room {
     static rooms = [];
+    static idcount = 0;
     constructor(size) {
         this.rid = Room.rooms.length
         Room.rooms.push(this)
-        this.id = `Game ${this.rid}`
+        this.id = `Game #${Room.idcount}`
+        Room.idcount++
         this.size = size
         this.clients = []
     }
@@ -25,13 +28,15 @@ class Room {
     removeClient(c) {
         this.clients.splice(c.index, 1)
         for (let i = c.index; i < this.clients.length; i++) {
-            this.clients[i].id--
+            this.clients[i].index--
         }
         delete c.index
 
         if (this.clients.length == 0) {
             Room.deleteRoom(this.rid)
+            return true
         }
+        return false
     }
     acceptingClient(c, i) {
         return this.clients.length < this.size
@@ -65,11 +70,26 @@ class Room {
 io.on("connection", (client) => {
     Room.emitData()
 
+    let LEAVE = (sw = false) => {
+        if (room) {
+            let dlt = room.removeClient(client)
+            if (!dlt)
+                client.to(room.id).emit('soft-leave')
+            if (!sw)
+                client.emit('hard-leave')
+            room = undefined
+            return dlt
+        }
+        return false
+    }
+
     let room
     client.on('join', (name, i) => {
         client.name = name
-        if (room) room.removeClient(client)
-        room = i !== undefined ? Room.rooms[i] : new Room(2)
+        let I
+        if (room) I = room.rid
+        let dlt = LEAVE(name, i !== undefined)
+        room = i !== undefined ? Room.rooms[i - (dlt && I < i) ? 1 : 0] : new Room(2)
         room.addClient(client)
         client.join(room.id)
 
@@ -84,14 +104,7 @@ io.on("connection", (client) => {
         client.to(room.id).emit('update', data)
     })
 
-    let LEAVE = () => {
-        if (room) {
-            client.to(room.id).emit('leave')
-            room.removeClient(client)
-        }
-        Room.emitData()
-    }
-    client.on('disconnect', LEAVE)
-    client.on('leave', LEAVE)
+    client.on('disconnect', () => { LEAVE(); Room.emitData() })
+    client.on('leave', () => { LEAVE(); Room.emitData() })
 })
 
