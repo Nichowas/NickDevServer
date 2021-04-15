@@ -69,7 +69,7 @@ io.on("connection", (client) => {
     client.on('join', (name, i) => {
         client.name = name
         if (room) room.removeClient(client)
-        room = i ? Room.rooms[i] : new Room(2)
+        room = i !== undefined ? Room.rooms[i] : new Room(2)
         room.addClient(client)
         client.join(room.id)
 
