@@ -13,7 +13,8 @@ class Room {
     static rooms = [];
     constructor(size) {
         Room.rooms.push(this)
-        this.id = `Game ${Room.rooms.length}`
+        this.rid = Room.rooms.length
+        this.id = `Game ${rid}`
         this.size = size
         this.clients = []
     }
@@ -27,6 +28,10 @@ class Room {
             this.clients[i].id--
         }
         delete c.index
+
+        if (this.clients.length == 0) {
+            Room.deleteRoom(this.rid)
+        }
     }
     acceptingClient(c, i) {
         return this.clients.length < this.size && (!c.opponent || c.opponent === this.clients[0].name)
@@ -40,6 +45,13 @@ class Room {
             if (this.rooms[i].acceptingClient(c, i)) return this.rooms[i]
         }
         return new Room(2)
+    }
+    static deleteRoom(i) {
+        this.rooms.splice(i, 1)
+        for (let j = i; j < this.rooms.length; j++) {
+            this.rooms[j].rid = j
+            this.rooms[j].id = `Game ${j}`
+        }
     }
     static toData() {
         return this.rooms.map(room => {
