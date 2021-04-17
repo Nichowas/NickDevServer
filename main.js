@@ -25,14 +25,14 @@ class Room {
         c.index = this.clients.length
         this.clients.push(c)
     }
-    removeClient(c) {
+    removeClient(c, dlt = true) {
         this.clients.splice(c.index, 1)
         for (let i = c.index; i < this.clients.length; i++) {
             this.clients[i].index--
         }
         delete c.index
 
-        if (this.clients.length == 0) {
+        if (dlt && this.clients.length == 0) {
             Room.deleteRoom(this.rid)
             return true
         }
@@ -52,6 +52,7 @@ class Room {
         return new Room(2)
     }
     static deleteRoom(i) {
+        while (this.rooms[i].clients.length > 0) this.rooms[i].removeClient(this.rooms[i].clients[0], false)
         this.rooms.splice(i, 1)
         for (let j = i; j < this.rooms.length; j++) {
             this.rooms[j].rid = j
@@ -73,6 +74,7 @@ io.on("connection", (client) => {
     let LEAVE = (sw = false) => {
         if (room) {
             let dlt = room.removeClient(client)
+
             if (!dlt)
                 client.to(room.id).emit('soft-leave')
             if (!sw)
@@ -84,15 +86,14 @@ io.on("connection", (client) => {
     }
 
     let room
-    client.on('join', (name, i) => {
+    client.on('join', (name, i = undefined) => {
         client.name = name
         let I
         if (room) I = room.rid
-        let dlt = LEAVE(name, i !== undefined)
+        let dlt = LEAVE(true)
         room = i !== undefined ? Room.rooms[i - (dlt && I < i) ? 1 : 0] : new Room(2)
         room.addClient(client)
         client.join(room.id)
-
 
         client.emit('join', room.rid)
         room.fullEmit((c, i) => c.emit('ready', i))
@@ -106,5 +107,12 @@ io.on("connection", (client) => {
 
     client.on('disconnect', () => { LEAVE(); Room.emitData() })
     client.on('leave', () => { LEAVE(); Room.emitData() })
+    client.on('game-end', (data) => {
+        Room.deleteRoom(room.rid)
+        io.to(room.id).emit('game-end', data)
+
+        Room.emitData()
+    })
+    client.on('game-end2', () => { room = undefined })
 })
 
