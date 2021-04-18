@@ -10,6 +10,11 @@ const
     })
 http.listen(port);
 console.log(port)
+
+app.post('/deploy', (req, res) => {
+    console.log(req, res)
+})
+
 class Room {
     static rooms = [];
     static idcount = 0;
