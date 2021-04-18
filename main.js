@@ -12,7 +12,7 @@ http.listen(port);
 console.log(port)
 
 app.post('/deploy', (req, res) => {
-    console.log(req, res)
+    console.log(req.body)
 })
 
 class Room {
