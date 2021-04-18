@@ -71,6 +71,9 @@ class Room {
 
 io.on("connection", (client) => {
     Room.emitData()
+    client.wins = 0
+    client.losses = 0
+
 
     let LEAVE = (sw = false) => {
         if (room) {
@@ -108,9 +111,23 @@ io.on("connection", (client) => {
 
     client.on('disconnect', () => { LEAVE(); Room.emitData() })
     client.on('leave', () => { LEAVE(); Room.emitData() })
-    client.on('game-end', (data) => {
+    client.on('game-end', (data, won) => {
+        let other = room.clients.filter(c => c.id !== client.id)[0]
+        if (won == 0) {
+            // client.wins++
+
+        }
+        if (won == 1) {
+            client.wins++
+            other.losses++
+        }
+        if (won == 2) {
+            client.losses++
+            other.wins++
+        }
         Room.deleteRoom(room.rid)
-        io.to(room.id).emit('game-end', data)
+        other.emit('game-end', data, other.wins, other.losses)
+        client.emit('game-end', data, client.wins, client.losses)
 
         Room.emitData()
     })
