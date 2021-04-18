@@ -11,6 +11,10 @@ const
 http.listen(port);
 console.log(port)
 
+
+
+const bodyParser = require('body-parser');
+app.use(bodyParser.text());
 app.post('/deploy', (req, res) => {
     console.log(req.body)
 })
