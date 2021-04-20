@@ -11,69 +11,64 @@ const
 http.listen(port);
 console.log(port)
 
-class Room {
-    static rooms = [];
-    static idcount = 0;
-    constructor(size) {
-        this.rid = Room.rooms.length
-        Room.rooms.push(this)
-        this.id = `Game #${Room.idcount}`
-        Room.idcount++
-        this.size = size
-        this.clients = []
-    }
-    addClient(c) {
-        c.index = this.clients.length
-        this.clients.push(c)
-    }
-    removeClient(c, dlt = true) {
-        this.clients.splice(c.index, 1)
-        for (let i = c.index; i < this.clients.length; i++) {
-            this.clients[i].index--
-        }
-        delete c.index
+var { Room } = require('./room.js')
 
-        if (dlt && this.clients.length == 0) {
-            Room.deleteRoom(this.rid)
-            return true
-        }
-        return false
-    }
-    acceptingClient(c, i) {
-        return this.clients.length < this.size
-    }
-    fullEmit(f) {
-        if (this.clients.length == this.size) { this.clients.forEach(f) }
-    }
+var UserCache = []
 
-    static findRoom(c) {
-        for (let i = 0; i < this.rooms.length; i++) {
-            if (this.rooms[i].acceptingClient(c, i)) return this.rooms[i]
-        }
-        return new Room(2)
+function getUserData(id) {
+    let uc = UserCache.find(u => u.gid === id)
+    if (uc) return uc
+}
+function getUserIndex(id) {
+    let uci = UserCache.findIndex(u => u.gid === id)
+
+    return uci
+}
+function updateUserData(id, obj) {
+    let uci = getUserIndex(id)
+    if (uci === -1) return -1
+    for (let i in obj) {
+        UserCache[uci][i] = obj[i]
     }
-    static deleteRoom(i) {
-        while (this.rooms[i].clients.length > 0) this.rooms[i].removeClient(this.rooms[i].clients[0], false)
-        this.rooms.splice(i, 1)
-        for (let j = i; j < this.rooms.length; j++) {
-            this.rooms[j].rid = j
-        }
-    }
-    static toData() {
-        return this.rooms.map(room => {
-            return room.clients.map(client => ({ name: client.name }))
-        })
-    }
-    static emitData() {
-        io.emit('rooms', this.toData())
+    return uci
+}
+function addUser(gid, name, wins = 0, losses = 0) {
+    let obj = { gid, name, wins, losses }
+    UserCache.push(obj)
+
+    return UserCache.length - 1
+}
+function loadFromDB(col) {
+    col.find().toArray((err, res) => {
+        UserCache = res
+        console.log(UserCache)
+    })
+}
+async function loadToDB(col) {
+    for (let i in UserCache) {
+        if (await col.findOne({ gid: UserCache[i].gid }))
+            await col.updateOne({ gid: UserCache[i].gid }, { $set: UserCache[i] })
+        else
+            await col.insertOne(UserCache[i])
     }
 }
+const url = "mongodb+srv://nichowas:Nicky123@cluster0.ywd4q.mongodb.net/devsite"
+var { MongoClient } = require('mongodb')
+var clientDB = new MongoClient(url), database, userCollection
+clientDB.connect((err) => {
+    if (err) throw err
+    database = clientDB.db('devsite');
+    userCollection = database.collection('users')
+    loadFromDB(userCollection)
+    console.log('connected to database')
+})
 
-io.on("connection", (client) => {
-    Room.emitData()
-    client.wins = 0
-    client.losses = 0
+let clientCount = 0
+async function main(client) {
+    clientCount++
 
+    Room.emitData(io)
+    let userIndex;
 
     let LEAVE = (sw = false) => {
         if (room) {
@@ -90,8 +85,7 @@ io.on("connection", (client) => {
     }
 
     let room
-    client.on('join', (name, i = undefined) => {
-        client.name = name
+    client.on('join', (i = undefined) => {
         let I
         if (room) I = room.rid
         let dlt = LEAVE(true)
@@ -102,39 +96,70 @@ io.on("connection", (client) => {
         client.emit('join', room.rid)
         room.fullEmit((c, i) => c.emit('ready', i))
 
-        Room.emitData()
+        Room.emitData(io)
     })
-
     client.on('update', (data) => {
         client.to(room.id).emit('update', data)
     })
 
-    client.on('disconnect', () => { LEAVE(); Room.emitData() })
-    client.on('leave', () => { LEAVE(); Room.emitData() })
+    client.on('disconnect', () => {
+        LEAVE(); Room.emitData(io)
+        clientCount--
+        if (clientCount === 0) {
+            loadToDB(userCollection)
+        }
+    })
+    client.on('leave', () => { LEAVE(); Room.emitData(io) })
     client.on('game-end', (data, won) => {
         let other = room.clients.filter(c => c.id !== client.id)[0]
         if (won == 0) {
             // client.wins++
 
         }
+        let cw = UserCache[userIndex].wins, cl = UserCache[userIndex].losses
+        let ow = UserCache[other.user].wins, ol = UserCache[other.user].losses
         if (won == 1) {
-            client.wins++
-            other.losses++
+            cw++; ol++;
+
+            updateUserData(UserCache[userIndex].gid, { wins: cw })
+            updateUserData(UserCache[other.user].gid, { losses: ol })
         }
         if (won == 2) {
-            client.losses++
-            other.wins++
+            ow++; cl++
+
+            updateUserData(UserCache[other.user].gid, { wins: ow })
+            updateUserData(UserCache[userIndex].gid, { losses: cl })
         }
         Room.deleteRoom(room.rid)
-        other.emit('game-end', data, other.wins, other.losses)
-        client.emit('game-end', data, client.wins, client.losses)
+        other.emit('game-end', data, ow, ol)
+        client.emit('game-end', data, cw, cl)
 
-        Room.emitData()
+        Room.emitData(io)
     })
     client.on('game-end2', () => { room = undefined })
-})
+
+    client.on('user-signin', (gid, name) => {
+        userIndex = getUserIndex(gid)
+        if (userIndex !== -1)
+            updateUserData(gid, { name })
+        else {
+            userIndex = addUser(gid, name)
+        }
+        client.user = userIndex
+        client.name = UserCache[userIndex].name
+
+        let cw = UserCache[userIndex].wins, cl = UserCache[userIndex].losses
+        client.emit('user-signin', cw, cl)
+
+    })
+
+}
+io.on('connection', main)
 
 // Comments for forcing changes
-/*
-    CHANGE COUNT: 0
-*/
+// CHANGE COUNT: 0
+
+process.on('beforeExit', (code) => {
+    clientDB.close()
+    console.log('leaving with code: ', code);
+});
