@@ -29,6 +29,7 @@
     "finalhandler": "^1.1.2",
     "forwarded": "^0.1.2",
     "fresh": "^0.5.2",
+    "http": "^0.0.1-security",
     "http-errors": "^1.7.2",
     "iconv-lite": "^0.4.24",
     "inherits": "^2.0.3",
@@ -40,6 +41,7 @@
     "mime": "^1.6.0",
     "mime-db": "^1.47.0",
     "mime-types": "^2.1.30",
+    "mongodb": "^3.6.6",
     "ms": "^2.0.0",
     "negotiator": "^0.6.2",
     "object-assign": "^4.1.1",
@@ -66,7 +68,6 @@
     "vary": "^1.1.2",
     "ws": "^7.4.4"
   },
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
