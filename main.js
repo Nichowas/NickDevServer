@@ -1,6 +1,6 @@
-// port = process.env.PORT,
+// port = 3000,
 const
-    port = 3000,
+    port = process.env.PORT,
     app = require("express")(),
     http = require("http").createServer(app),
     io = require("socket.io")(http, {
