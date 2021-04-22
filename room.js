@@ -8,16 +8,28 @@ class Room {
         Room.idcount++
         this.size = size
         this.clients = []
+
+        this.moves = []
+
+        this.needing = 'white'
+    }
+    addMove(m) {
+        this.moves.push(m)
     }
     addClient(c) {
+        c.turn = this.needing
+        this.needing = { white: 'black', black: null }[this.needing]
         c.index = this.clients.length
         this.clients.push(c)
     }
     removeClient(c, dlt = true) {
+        this.needing = c.turn
+
         this.clients.splice(c.index, 1)
         for (let i = c.index; i < this.clients.length; i++) {
             this.clients[i].index--
         }
+        delete c.turn
         delete c.index
 
         if (dlt && this.clients.length == 0) {

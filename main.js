@@ -1,6 +1,6 @@
-// port = 3000,
+// port = process.env.PORT,
 const
-    port = process.env.PORT,
+    port = 3000,
     app = require("express")(),
     http = require("http").createServer(app),
     io = require("socket.io")(http, {
@@ -41,12 +41,13 @@ function addUser(gid, name, wins = 0, losses = 0) {
 function loadFromDB(col) {
     col.find().toArray((err, res) => {
         UserCache = res
-        console.log(UserCache)
     })
 }
 async function loadToDB(col) {
+    let gidmap = {};
+    (await col.find().toArray()).forEach(dt => { gidmap[dt.gid] = true })
     for (let i in UserCache) {
-        if (await col.findOne({ gid: UserCache[i].gid }))
+        if (gidmap[UserCache[i].gid] === true)
             await col.updateOne({ gid: UserCache[i].gid }, { $set: UserCache[i] })
         else
             await col.insertOne(UserCache[i])
@@ -70,14 +71,10 @@ async function main(client) {
     Room.emitData(io)
     let userIndex;
 
-    let LEAVE = (sw = false) => {
+    let LEAVE = () => {
         if (room) {
+            io.to(room.id).emit('leave')
             let dlt = room.removeClient(client)
-
-            if (!dlt)
-                client.to(room.id).emit('soft-leave')
-            if (!sw)
-                client.emit('hard-leave')
             room = undefined
             return dlt
         }
@@ -93,19 +90,21 @@ async function main(client) {
         room.addClient(client)
         client.join(room.id)
 
-        client.emit('join', room.rid)
-        room.fullEmit((c, i) => c.emit('ready', i))
+        client.emit('join', room.rid, client.turn)
+        room.fullEmit((c) => c.emit('ready'))
 
         Room.emitData(io)
     })
     client.on('update', (data) => {
-        client.to(room.id).emit('update', data)
+        room.addMove(data)
+        client.to(room.id).emit('update', room.moves)
     })
 
     client.on('disconnect', () => {
         LEAVE(); Room.emitData(io)
+        let temp = clientCount
         clientCount--
-        if (clientCount === 0) {
+        if (temp === 1 && clientCount === 0) {
             loadToDB(userCollection)
         }
     })
