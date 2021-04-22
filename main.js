@@ -151,6 +151,14 @@ async function main(client) {
         client.emit('user-signin', cw, cl)
 
     })
+    client.on('admin:save-to-database', () => {
+        loadToDB(userCollection)
+        console.log('running admin command: save-to-database')
+    })
+    client.on('admin:load-from-database', () => {
+        console.log('running admin command: load-from-database')
+        loadFromDB(userCollection)
+    })
 
 }
 io.on('connection', main)
