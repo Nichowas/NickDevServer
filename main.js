@@ -144,6 +144,7 @@ async function userSignin(cdata, gid, name) {
         w = userId.wins, l = userId.losses
         cdata.userId = userId._id
         await userCollection.updateOne({ gid }, { $set: { name, online: true } })
+
     }
     cdata.name = name
     cdata.client.emit('user-signin', w, l)
@@ -153,13 +154,13 @@ async function userSignin(cdata, gid, name) {
 async function userSignout(cdata) {
     // leaveRoom(cdata)
 
-    await userCollection.updateOne({ _id: cdata.userID }, { $set: { online: false } })
+    await userCollection.updateOne({ _id: cdata.userId }, { $set: { online: false } })
 
     await guestSignin(cdata)
     Room.emitData(io)
 }
 async function guestSignin(cdata) {
-    cdata.userID = (await userCollection.findOne({ guest: true }))._id
+    cdata.userID = (await userCollection.findOne({ guest: { $exists: true } }))._id
     cdata.name = 'Guest'
 }
 
