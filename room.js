@@ -58,13 +58,16 @@ class Room {
             this.rooms[j].rid = j
         }
     }
-    static toData() {
+    static toRoomData() {
         return this.rooms.map(room => {
-            return room.clients.map(client => ({ name: client.cdata.name }))
+            return room.clients.map(client => ({
+                name: client.cdata.name,
+                id: client.cdata.userId
+            }))
         })
     }
-    static emitData(io) {
-        io.emit('rooms', this.toData())
+    static emitRoomData(io) {
+        io.emit('rooms', this.toRoomData())
     }
 }
 
