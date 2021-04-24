@@ -133,6 +133,8 @@ async function gameEnd(cdata, data, won) {
     Room.emitData(io)
 }
 async function userSignin(cdata, gid, name) {
+    await userCollection.updateOne({ _id: cdata.userID, guest: { $exists: false } }, { $set: { online: false } })
+
     let userId = await userCollection.findOne({ gid })
     let w, l
     if (userId === null) {
