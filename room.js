@@ -1,4 +1,3 @@
-var clientData = []
 class Room {
     static rooms = [];
     static idcount = 0;
@@ -18,20 +17,20 @@ class Room {
         this.moves.push(m)
     }
     addClient(c) {
-        clientData[c.cid].turn = this.needing
+        c.cdata.turn = this.needing
         this.needing = { white: 'black', black: null }[this.needing]
-        clientData[c.cid].index = this.clients.length
+        c.cdata.index = this.clients.length
         this.clients.push(c)
     }
     removeClient(c, dlt = true) {
-        this.needing = clientData[c.cid].turn
+        this.needing = c.cdata.turn
 
-        this.clients.splice(clientData[c.cid].index, 1)
-        for (let i = clientData[c.cid].index; i < this.clients.length; i++) {
-            clientData[this.clients[i].cid].index--
+        this.clients.splice(c.cdata.index, 1)
+        for (let i = c.cdata.index; i < this.clients.length; i++) {
+            this.clients[i].cdata.index--
         }
-        delete clientData[c.cid].turn
-        delete clientData[c.cid].index
+        delete c.cdata.turn
+        delete c.cdata.index
 
         if (dlt && this.clients.length == 0) {
             Room.deleteRoom(this.rid)
@@ -61,7 +60,7 @@ class Room {
     }
     static toData() {
         return this.rooms.map(room => {
-            return room.clients.map(client => ({ name: clientData[client.cid].name }))
+            return room.clients.map(client => ({ name: client.cdata.name }))
         })
     }
     static emitData(io) {
@@ -70,4 +69,3 @@ class Room {
 }
 
 module.exports.Room = Room
-module.exports.clientData = clientData
