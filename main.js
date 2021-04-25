@@ -70,15 +70,7 @@ async function main(client) {
         client.emit('start')
     })
 }
-function leaveRoom(cdata) {
-    if (cdata.room) {
-        io.to(cdata.room.id).emit('leave')
-        let dlt = cdata.room.removeClient(cdata.client)
-        cdata.room = undefined
-        return dlt
-    }
-    return false
-}
+
 function join(cdata, i = undefined) {
     let I
     if (cdata.room) I = cdata.room.rid
@@ -96,6 +88,16 @@ function update(cdata, data) {
     cdata.room.addMove(data)
     cdata.client.to(cdata.room.id).emit('update', cdata.room.moves)
 }
+
+function leaveRoom(cdata) {
+    if (cdata.room) {
+        io.to(cdata.room.id).emit('leave')
+        let dlt = cdata.room.removeClient(cdata.client)
+        cdata.room = undefined
+        return dlt
+    }
+    return false
+}
 function disconnect(cdata) {
     leaveRoom(cdata);
     userSignout(cdata, false)
@@ -104,44 +106,46 @@ function leave(cdata) {
     leaveRoom(cdata);
     Room.emitRoomData(io)
 }
+
+const K = 32
+const eB = 10
+const eS = 400
+function calcE(Ra, Rb) { return 1 / (1 + Math.pow(eB, (Rb - Ra) / eS)) }
+function newRatings(Ra, Rb, S) {
+    return [
+        Ra + K * (S - calcE(Ra, Rb)),
+        Rb + K * (1 - S - calcE(Rb, Ra))
+    ]
+}
 async function gameEnd(cdata, data, won) {
     let other = cdata.room.clients.filter(c => c.id !== cdata.client.id)[0]
-    if (won == 0) {
-        // client.wins++
-
-    }
 
     let cd = await userCollection.findOne({ _id: cdata.userId })
-    let cw = cd.wins, cl = cd.losses
+    let cw = cd.wins, cl = cd.losses, cr = cd.rating;
 
     let od = await userCollection.findOne({ _id: other.cdata.userId })
-    let ow = od.wins, ol = od.losses
+    let ow = od.wins, ol = od.losses, or = od.rating;
 
-    if (won == 1) {
-        cw++; ol++;
+    cw += won == 2; cl += won == 0;
+    ow += won == 0; ol += won == 2;
+    if (!cd.guest && !od.guest) [cr, or] = newRatings(cr, or, won / 2)
+    await userCollection.updateOne({ _id: /*  */cdata.userId }, { $set: { wins: cw, losses: cl, rating: cr } })
+    await userCollection.updateOne({ _id: other.cdata.userId }, { $set: { wins: ow, losses: ol, rating: or } })
 
-        await userCollection.updateOne({ _id: cdata.userId }, { $set: { wins: cw } })
-        await userCollection.updateOne({ _id: other.cdata.userId }, { $set: { losses: ol } })
-    }
-    if (won == 2) {
-        ow++; cl++
-
-        await userCollection.updateOne({ _id: other.cdata.userId }, { $set: { wins: ow } })
-        await userCollection.updateOne({ _id: cdata.userId }, { $set: { losses: cl } })
-    }
     Room.deleteRoom(room.rid)
     other.emit('game-end', data, ow, ol)
     cdata.client.emit('game-end', data, cw, cl)
 
     Room.emitRoomData(io)
 }
+
 async function userSignin(cdata, gid, name, src) {
     await userCollection.updateOne({ _id: cdata.userId, guest: { $exists: false } }, { $set: { online: false } })
 
     let userId = await userCollection.findOne({ gid })
     let w, l
     if (userId === null) {
-        cdata.userId = (await userCollection.insertOne({ gid, name, src, wins: 0, losses: 0, online: true })).insertedId
+        cdata.userId = (await userCollection.insertOne({ gid, name, src, wins: 0, losses: 0, online: true, rating: 1000 })).insertedId
         w = 0, l = 0
     } else {
         w = userId.wins, l = userId.losses
@@ -152,12 +156,12 @@ async function userSignin(cdata, gid, name, src) {
     cdata.name = name
     Room.emitRoomData(io)
 
-    let users = await userCollection.find({
+    let users = (await userCollection.find({
         guest: { $exists: false }
-    }).toArray()
-    users = users.map(u => ({
+    }).sort({ rating: -1 }.limit(5)).toArray()).map(u => ({
         id: u._id,
-        gid: u.gid, name: u.name, src: u.src
+        gid: u.gid, name: u.name, src: u.src,
+        wins: u.wins, losses: u.losses, rating: u.rating
     }))
     cdata.client.emit('user-signin', users, w, l)
 }
