@@ -66,7 +66,7 @@ async function main(client) {
     client.on('guest-signin', () => guestSignin(cdata))
 
     ready.onStart(async () => {
-        client.emit('start')
+        client.emit('start', await getTopUsers(5))
     })
 }
 
@@ -159,7 +159,8 @@ async function userSignin(cdata, gid, name, src) {
     cdata.name = name
     Room.emitRoomData(io)
 
-    cdata.client.emit('user-signin', await getTopUsers(5), w, l)
+    cdata.client.emit('user-signin', w, l)
+    io.emit('users', await getTopUsers(5))
 }
 async function userSignout(cdata, gsi = true) {
     if (cdata.room) await gameEnd(cdata, undefined, 0)
