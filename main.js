@@ -61,7 +61,6 @@ async function main(client) {
     client.on('disconnect', () => disconnect(cdata))
     client.on('leave', () => leave(cdata))
     client.on('game-end', (data, won) => gameEnd(cdata, data, won))
-    client.on('game-end2', () => { cdata.room = undefined })
     client.on('user-signin', (gid, name, src) => userSignin(cdata, gid, name, src))
     client.on('user-signout', () => userSignout(cdata))
     client.on('guest-signin', () => guestSignin(cdata))
@@ -74,7 +73,8 @@ async function main(client) {
 function join(cdata, i = undefined) {
     let I
     if (cdata.room) I = cdata.room.rid
-    let dlt = leaveRoom(cdata)
+    let dlt = cdata.room !== undefined
+    if (cdata.room) Room.deleteRoom(cdata.room.rid);
     cdata.room = i !== undefined ? Room.rooms[i - (dlt && I < i) ? 1 : 0] : new Room(2)
     cdata.room.addClient(cdata.client)
     cdata.client.join(cdata.room.id)
@@ -89,21 +89,11 @@ function update(cdata, data) {
     cdata.client.to(cdata.room.id).emit('update', cdata.room.moves)
 }
 
-function leaveRoom(cdata) {
-    if (cdata.room) {
-        io.to(cdata.room.id).emit('leave')
-        let dlt = cdata.room.removeClient(cdata.client)
-        cdata.room = undefined
-        return dlt
-    }
-    return false
-}
 function disconnect(cdata) {
-    leaveRoom(cdata);
     userSignout(cdata, false)
 }
 function leave(cdata) {
-    leaveRoom(cdata);
+    if (cdata.room) Room.deleteRoom(cdata.room.rid);
     Room.emitRoomData(io)
 }
 
@@ -113,8 +103,8 @@ const eS = 400
 function calcE(Ra, Rb) { return 1 / (1 + Math.pow(eB, (Rb - Ra) / eS)) }
 function newRatings(Ra, Rb, S) {
     return [
-        Ra + K * (S - calcE(Ra, Rb)),
-        Rb + K * (1 - S - calcE(Rb, Ra))
+        Ra + Math.floor(K * (S - calcE(Ra, Rb))),
+        Rb + Math.floor(K * (1 - S - calcE(Rb, Ra)))
     ]
 }
 async function gameEnd(cdata, data, won) {
@@ -129,16 +119,29 @@ async function gameEnd(cdata, data, won) {
     cw += won == 2; cl += won == 0;
     ow += won == 0; ol += won == 2;
     if (!cd.guest && !od.guest) [cr, or] = newRatings(cr, or, won / 2)
+    console.log(cr, or)
     await userCollection.updateOne({ _id: /*  */cdata.userId }, { $set: { wins: cw, losses: cl, rating: cr } })
     await userCollection.updateOne({ _id: other.cdata.userId }, { $set: { wins: ow, losses: ol, rating: or } })
 
-    Room.deleteRoom(room.rid)
+    Room.deleteRoom(cdata.room.rid);
+
     other.emit('game-end', data, ow, ol)
     cdata.client.emit('game-end', data, cw, cl)
 
     Room.emitRoomData(io)
+    io.emit('users', await getTopUsers(5))
 }
 
+async function getTopUsers(num = 5) {
+    return (await userCollection.find({
+        guest: { $exists: false }
+    }).sort({ rating: -1 }).limit(num).toArray()).map(u => ({
+        id: u._id,
+        gid: u.gid, name: u.name, src: u.src,
+        wins: u.wins, losses: u.losses, rating: u.rating,
+        online: u.online
+    }))
+}
 async function userSignin(cdata, gid, name, src) {
     await userCollection.updateOne({ _id: cdata.userId, guest: { $exists: false } }, { $set: { online: false } })
 
@@ -156,17 +159,10 @@ async function userSignin(cdata, gid, name, src) {
     cdata.name = name
     Room.emitRoomData(io)
 
-    let users = (await userCollection.find({
-        guest: { $exists: false }
-    }).sort({ rating: -1 }).limit(5).toArray()).map(u => ({
-        id: u._id,
-        gid: u.gid, name: u.name, src: u.src,
-        wins: u.wins, losses: u.losses, rating: u.rating
-    }))
-    cdata.client.emit('user-signin', users, w, l)
+    cdata.client.emit('user-signin', await getTopUsers(5), w, l)
 }
 async function userSignout(cdata, gsi = true) {
-    // leaveRoom(cdata)
+    if (cdata.room) await gameEnd(cdata, undefined, 0)
 
     await userCollection.updateOne({ _id: cdata.userId }, { $set: { online: false } })
 

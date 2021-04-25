@@ -23,6 +23,7 @@ class Room {
         this.clients.push(c)
     }
     removeClient(c, dlt = true) {
+        c.cdata.room = undefined
         this.needing = c.cdata.turn
 
         this.clients.splice(c.cdata.index, 1)
