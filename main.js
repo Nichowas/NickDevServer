@@ -158,7 +158,7 @@ async function userSignin(cdata, gid, name, src) {
 
     let users = (await userCollection.find({
         guest: { $exists: false }
-    }).sort({ rating: -1 }.limit(5)).toArray()).map(u => ({
+    }).sort({ rating: -1 }).limit(5).toArray()).map(u => ({
         id: u._id,
         gid: u.gid, name: u.name, src: u.src,
         wins: u.wins, losses: u.losses, rating: u.rating
