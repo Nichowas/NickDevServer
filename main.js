@@ -120,8 +120,8 @@ async function gameEnd(cdata, data, won) {
         cw += won == 2; cl += won == 0;
         ow += won == 0; ol += won == 2;
         if (!cd.guest && !od.guest) [cr, or] = newRatings(cr, or, won / 2)
-        await userCollection.updateOne({ _id: /*  */cdata.userId }, { $set: { wins: cw, losses: cl, rating: cr } })
-        await userCollection.updateOne({ _id: other.cdata.userId }, { $set: { wins: ow, losses: ol, rating: or } })
+        if (!cd.guest) await userCollection.updateOne({ _id: /*  */cdata.userId }, { $set: { wins: cw, losses: cl, rating: cr } })
+        if (!od.guest) await userCollection.updateOne({ _id: other.cdata.userId }, { $set: { wins: ow, losses: ol, rating: or } })
 
         other.emit('game-end', data, ow, ol)
     }
