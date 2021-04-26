@@ -94,6 +94,7 @@ function disconnect(cdata) {
 }
 function leave(cdata) {
     if (cdata.room) Room.deleteRoom(cdata.room.rid);
+    cdata.room = undefined
     Room.emitRoomData(io)
 }
 
@@ -112,24 +113,23 @@ async function gameEnd(cdata, data, won) {
 
     let cd = await userCollection.findOne({ _id: cdata.userId })
     let cw = cd.wins, cl = cd.losses, cr = cd.rating;
+    if (other) {
+        let od = await userCollection.findOne({ _id: other.cdata.userId })
+        let ow = od.wins, ol = od.losses, or = od.rating;
 
-    let od = await userCollection.findOne({ _id: other.cdata.userId })
-    let ow = od.wins, ol = od.losses, or = od.rating;
+        cw += won == 2; cl += won == 0;
+        ow += won == 0; ol += won == 2;
+        if (!cd.guest && !od.guest) [cr, or] = newRatings(cr, or, won / 2)
+        await userCollection.updateOne({ _id: /*  */cdata.userId }, { $set: { wins: cw, losses: cl, rating: cr } })
+        await userCollection.updateOne({ _id: other.cdata.userId }, { $set: { wins: ow, losses: ol, rating: or } })
 
-    cw += won == 2; cl += won == 0;
-    ow += won == 0; ol += won == 2;
-    if (!cd.guest && !od.guest) [cr, or] = newRatings(cr, or, won / 2)
-    console.log(cr, or)
-    await userCollection.updateOne({ _id: /*  */cdata.userId }, { $set: { wins: cw, losses: cl, rating: cr } })
-    await userCollection.updateOne({ _id: other.cdata.userId }, { $set: { wins: ow, losses: ol, rating: or } })
-
-    Room.deleteRoom(cdata.room.rid);
-
-    other.emit('game-end', data, ow, ol)
+        other.emit('game-end', data, ow, ol)
+    }
     cdata.client.emit('game-end', data, cw, cl)
 
+    Room.deleteRoom(cdata.room.rid);
+    cdata.room = undefined
     Room.emitRoomData(io)
-    io.emit('users', await getTopUsers(5))
 }
 
 async function getTopUsers(num = 5) {
@@ -166,13 +166,14 @@ async function userSignout(cdata, gsi = true) {
     if (cdata.room) await gameEnd(cdata, undefined, 0)
 
     await userCollection.updateOne({ _id: cdata.userId }, { $set: { online: false } })
-
     if (gsi)
         await guestSignin(cdata)
+
+    io.emit('users', await getTopUsers(5))
     Room.emitRoomData(io)
 }
 async function guestSignin(cdata) {
-    cdata.userID = (await userCollection.findOne({ guest: { $exists: true } }))._id
+    cdata.userId = (await userCollection.findOne({ guest: { $exists: true } }))._id
     cdata.name = 'Guest'
 }
 
